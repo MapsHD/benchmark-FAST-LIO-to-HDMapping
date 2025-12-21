@@ -58,7 +58,8 @@ set +a
 
 INPUT_BAG_DIR="$(dirname "$INPUT_BAG_FILE")"
 INPUT_BAG_NAME="$(basename "$INPUT_BAG_FILE")"
-OUTPUT_DIR_ABS="${INPUT_BAG_DIR}/${OUTPUT_DIR}"
+EXP_DIR="$(realpath "$(dirname "$INPUT_BAG_DIR")")"
+OUTPUT_DIR_ABS="${EXP_DIR}/results/${OUTPUT_DIR}"
 
 echo "=========================================="
 echo "Running FAST-LIO benchmark (ROS1)"
@@ -71,25 +72,30 @@ echo "=========================================="
 
 mkdir -p "$OUTPUT_DIR_ABS"
 
-# Image expected to contain FAST_LIO + converter
+# Image expected to contain FAST_LIO + converter.
+# Override with FASTLIO_IMAGE env var for local builds.
 IMAGE="${FASTLIO_IMAGE:-ghcr.io/mapshd/fastlio2hdmapping:latest}"
 
 docker run --rm -t \
     -u $(id -u):$(id -g) \
-    -v "${INPUT_BAG_DIR}:/data" \
+    -e HOME=/tmp \
+    -e ROS_HOME=/tmp/.ros \
+    -v "${INPUT_BAG_DIR}:/data:ro" \
+    -v "${EXP_DIR}:/exp:rw" \
     "${IMAGE}" \
     bash -lc "
       set -e
+      mkdir -p /tmp/.ros
       source /opt/ros/noetic/setup.bash
-      # Workspace is built with colcon in this image
-      if [ -f /test_ws/install/setup.bash ]; then
-        source /test_ws/install/setup.bash
-      elif [ -f /test_ws/devel/setup.bash ]; then
+      # Prefer catkin devel-space (rosrun-friendly), fall back to install-space.
+      if [ -f /test_ws/devel/setup.bash ]; then
         source /test_ws/devel/setup.bash
+      elif [ -f /test_ws/install/setup.bash ]; then
+        source /test_ws/install/setup.bash
       fi
 
       BAG=\"/data/${INPUT_BAG_NAME}\"
-      OUT_DIR=\"/data/${OUTPUT_DIR}\"
+      OUT_DIR=\"/exp/results/${OUTPUT_DIR}\"
       REC_BAG=\"\${OUT_DIR}/recorded.bag\"
 
       mkdir -p \"\${OUT_DIR}\"
@@ -111,6 +117,9 @@ docker run --rm -t \
         rostopic list >/dev/null 2>&1 && break
         sleep 0.2
       done
+
+      # Ensure nodes use simulated time when playing bags with --clock
+      rosparam set use_sim_time true
 
       # Launch FAST-LIO (best-effort topic overrides; depends on launch accepting these args)
       roslaunch ${FASTLIO_LAUNCH} imu_topic:=${INPUT_IMU_TOPIC} lidar_topic:=${INPUT_LIDAR_TOPIC} >/tmp/fastlio.log 2>&1 &
