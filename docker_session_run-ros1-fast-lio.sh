@@ -58,6 +58,7 @@ echo "Output dir: $BAG_OUTPUT_HOST"
 xhost +local:docker >/dev/null
 
 docker run -it --rm \
+  -e DISABLE_ROS1_EOL_WARNINGS=1 \
   --network host \
   -e DISPLAY=$DISPLAY \
   -e ROS_HOME=/tmp/.ros \
@@ -117,6 +118,7 @@ pkill -f ros || true
   '
 
 docker run -it --rm \
+  -e DISABLE_ROS1_EOL_WARNINGS=1 \
   --network host \
   -e DISPLAY="$DISPLAY" \
   -e ROS_HOME=/tmp/.ros \
