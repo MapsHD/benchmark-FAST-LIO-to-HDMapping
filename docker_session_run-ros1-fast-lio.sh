@@ -74,7 +74,7 @@ docker run -it --rm \
     tmux send-keys -t '"$TMUX_SESSION"' '\''sleep 5
 source /opt/ros/noetic/setup.bash
 source /ros_ws/devel/setup.bash
-roslaunch fast_lio mapping_mid360.launch use_sim_time:=true
+roslaunch fast-lio-to-hdmapping fast_lio_canonical.launch use_sim_time:=true
 '\'' C-m
 
     # ---------- PANEL 2: rosbag record ----------
